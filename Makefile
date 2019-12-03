@@ -1,4 +1,4 @@
-.PHONY: build
+.PHONY: build test install
 
 build:
 	dune build @install --profile release
@@ -14,3 +14,6 @@ clean:
 
 utop:
 	dune utop --profile release
+
+install: build
+	dune install
