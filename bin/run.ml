@@ -6,6 +6,7 @@ let solve num =
     | 1 -> P1.solve ()
     | 2 -> P2.solve ()
     | 3 -> P3.solve ()
+    | 4 -> P4.solve ()
     | _ -> printf "Not solved yet, sorry :-)\n"
 
 let () =
