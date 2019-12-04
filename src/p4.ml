@@ -2,10 +2,18 @@ open Core
 
 let rec two_adj_digits pass =
     match pass with
-    | a :: b :: t when Char.to_int a = Char.to_int b -> true
+    | a :: b :: c :: d :: t when b = c && b <> a && b <> d -> true
     |  _ :: t -> two_adj_digits t
     | _ -> false
-let two_adj_digits pass = String.to_list pass |> two_adj_digits
+let two_adj_digits pass = 
+    let head_test cpass =
+        match cpass with
+        | a :: b :: c :: t when a = b && a <> c -> true
+        | _ -> false
+    in
+    let cpass = String.to_list pass in
+    if head_test cpass || head_test (List.rev cpass) then true
+    else two_adj_digits cpass
 let rec non_decreasing_digits pass =
     match pass with
     | a :: b :: t when Char.to_int a <= Char.to_int b ->
