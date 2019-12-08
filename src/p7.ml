@@ -1,7 +1,7 @@
 open Core
 
 let inputs = ref []
-let outputs = ref []
+let output_val = ref 0
 
 let input () =
     match !inputs with
@@ -11,7 +11,7 @@ let input () =
         Int.of_string In_channel.(input_line_exn stdin)
     | h :: t -> inputs := t; h
 
-let output v = outputs := (!outputs @ [v])
+let output v = output_val := v
 
 type mode = Addr | Imm
 
@@ -103,135 +103,163 @@ let parse (tape: int array) (i: int): op * int =
     | _, _, _, 99 -> Halt, (i + 1)
     | a, b, c, d -> raise (IllegalOpCode (a, b, c, d))
 
-let rec eval (tape: int array) (ic: int): unit =
+let rec eval (tape: int array) (ic: int) halt_on_output halt_on_input: int =
     let op, ic' = parse tape ic in
     match op with
     | Add (a, b, (dest, _)) -> (
         let a = read a tape in
         let b = read b tape in
         write ~value:(a + b) ~addr:dest tape;
-        eval tape ic'
+        eval tape ic' halt_on_output halt_on_input
     )
     | Mul (a, b, (dest, _)) -> (
         let a = read a tape in
         let b = read b tape in
         write ~value:(a * b) ~addr:dest tape;
-        eval tape ic'
+        eval tape ic' halt_on_output halt_on_input
     )
     | Lt (a, b, (dest, _)) -> (
         let a = read a tape in
         let b = read b tape in
         write ~value:(if a < b then 1 else 0) ~addr:dest tape;
-        eval tape ic'
+        eval tape ic' halt_on_output halt_on_input
     )
     | Eq (a, b, (dest, _)) -> (
         let a = read a tape in
         let b = read b tape in
         write ~value:(if a = b then 1 else 0) ~addr:dest tape;
-        eval tape ic'
+        eval tape ic' halt_on_output halt_on_input
     )
     | Input dest -> (
         let input = input () in
         tape.(dest) <- input;
-        eval tape ic'
+        match halt_on_input with
+        | false -> eval tape ic' halt_on_output halt_on_input
+        | true -> ic'
     )
     | Output a -> (
         let a = read a tape in
         output a;
-        eval tape ic'
+        match halt_on_output with
+        | false -> eval tape ic' halt_on_output halt_on_input
+        | true -> ic'
     )
     | JumpIfTrue (test, dest) -> (
         let test = read test tape in
         let dest = read dest tape in
         match test with
-        | 0 -> eval tape ic'
-        | _ -> eval tape dest
+        | 0 -> eval tape ic' halt_on_output halt_on_input
+        | _ -> eval tape dest halt_on_output halt_on_input
     )
     | JumpIfFalse (test, dest) -> (
         let test = read test tape in
         let dest = read dest tape in
         match test with
-        | 0 -> eval tape dest
-        | _ -> eval tape ic'
+        | 0 -> eval tape dest halt_on_output halt_on_input
+        | _ -> eval tape ic' halt_on_output halt_on_input
     )
-    | Halt -> ()
+    | Halt -> -1
 
-let try_inputs tape new_inputs: int list =
-    outputs := [];
-    inputs := new_inputs;
-    eval (Array.copy tape) 0;
-    !outputs
+let try_phases tape p0 p1 p2 p3 p4: int =
+    output_val := 0;
+    let t0, t1, t2, t3, t4 = (Array.copy tape), (Array.copy tape), (Array.copy tape), (Array.copy tape), (Array.copy tape) in
+    let s = ref 0 in
+    let i0, i1, i2, i3, i4 = ref 0, ref 0, ref 0, ref 0, ref 0 in
+    (* init *)
+    inputs := [p0];
+    i0 := eval t0 !i0 true true;
+    inputs := [p1];
+    i1 := eval t1 !i1 true true;
+    inputs := [p2];
+    i2 := eval t2 !i2 true true;
+    inputs := [p3];
+    i3 := eval t3 !i3 true true;
+    inputs := [p4];
+    i4 := eval t4 !i4 true true;
+    while (!i0 <> -1 && !i1 <> -1 && !i2 <> -1 && !i3 <> -1 && !i4 <> -1) do
+        inputs := [!s];
+        i0 := eval t0 !i0 true false;
+        let s0 = !output_val in
+        inputs := [s0];
+        i1 := eval t1 !i1 true false;
+        let s1 = !output_val in
+        inputs := [s1];
+        i2 := eval t2 !i2 true false;
+        let s2 = !output_val in
+        inputs := [s2];
+        i3 := eval t3 !i3 true false;
+        let s3 = !output_val in
+        inputs := [s3];
+        i4 := eval t4 !i4 true false;
+        s := !output_val
+    done;
+    !s
 
-exception InvalidOutputs of int list
 let rec gather_results
     tape
     (acc: (int * int) list)
     (thruster: int)
     (phases: int list)
-    (signals: int list)
     (res: (int * (int * int * int * int * int)) list)=
     match thruster with
     | 5 -> (
-        match acc, signals with
-        | (4, 4) :: (3, 4) :: (2, 4) :: (1, 4) :: (0, 4) :: t, _ -> res
-        | (4, 4) :: (3, 4) :: (2, 4) :: (1, 4) :: (0, p0) :: t, s :: _ :: _ :: _ :: _ :: signals -> (
+        match acc with
+        | (4, 9) :: (3, 9) :: (2, 9) :: (1, 9) :: (0, 9) :: t -> res
+        | (4, 9) :: (3, 9) :: (2, 9) :: (1, 9) :: (0, p0) :: t -> (
+            let s = try_phases tape p0 9 9 9 9 in
             gather_results
                 tape
                 t
                 0
                 ((p0 + 1) :: 0 :: 0 :: 0 :: 0 :: phases)
-                signals
-                ((s, (p0, 4, 4, 4, 4)) :: res)
+                ((s, (p0, 9, 9, 9, 9)) :: res)
         )
-        | (4, 4) :: (3, 4) :: (2, 4) :: (1, p1) :: (0, p0) :: t, s :: _ :: _ :: _ :: signals -> (
+        | (4, 9) :: (3, 9) :: (2, 9) :: (1, p1) :: (0, p0) :: t -> (
+            let s = try_phases tape p0 p1 9 9 9 in
             gather_results
                 tape
                 ((0, p0) :: t)
                 1
                 ((p1 + 1) :: 0 :: 0 :: 0 :: phases)
-                signals
-                ((s, (p0, p1, 4, 4, 4)) :: res)
+                ((s, (p0, p1, 9, 9, 9)) :: res)
         )
-        | (4, 4) :: (3, 4) :: (2, p2) :: (1, p1) :: (0, p0) :: t, s :: _ :: _ :: signals -> (
+        | (4, 9) :: (3, 9) :: (2, p2) :: (1, p1) :: (0, p0) :: t -> (
+            let s = try_phases tape p0 p1 p2 9 9 in
             gather_results
                 tape
                 ((1, p1) :: (0, p0) :: t)
                 2
                 ((p2 + 1) :: 0 :: 0 :: phases)
-                signals
-                ((s, (p0, p1, p2, 4, 4)) :: res)
+                ((s, (p0, p1, p2, 9, 9)) :: res)
         )
-        | (4, 4) :: (3, p3) :: (2, p2) :: (1, p1) :: (0, p0) :: t, s :: _ :: signals -> (
+        | (4, 9) :: (3, p3) :: (2, p2) :: (1, p1) :: (0, p0) :: t -> (
+            let s = try_phases tape p0 p1 p2 p3 9 in
             gather_results
                 tape
                 ((2, p2) :: (1, p1) :: (0, p0) :: t)
                 3
                 ((p3 + 1) :: 0 :: phases)
-                signals
-                ((s, (p0, p1, p2, p3, 4)) :: res)
+                ((s, (p0, p1, p2, p3, 9)) :: res)
         )
-        | (4, p4) :: (3, p3) :: (2, p2) :: (1, p1) :: (0, p0) :: t, s :: signals -> (
+        | (4, p4) :: (3, p3) :: (2, p2) :: (1, p1) :: (0, p0) :: t -> (
+            let s = try_phases tape p0 p1 p2 p3 p4 in
             gather_results
                 tape
                 ((3, p3) :: (2, p2) :: (1, p1) :: (0, p0) :: t)
                 4
                 ((p4 + 1) :: phases)
-                signals ((s, (p0, p1, p2, p3, p4)) :: res)
+                ((s, (p0, p1, p2, p3, p4)) :: res)
         )
-        | a, s -> printf "a: "; List.iter a ~f:(fun (a, b) -> printf "(%d, %d) " a b);
-                  printf "s: "; List.iter s ~f:(fun s -> printf "%d " s);
+        | a -> printf "a: "; List.iter a ~f:(fun (a, b) -> printf "(%d, %d) " a b);
             failwith "Invalid accumulator in gather_results"
     )
     | _ -> (
-        let signal = List.hd_exn signals in
         let phase = List.hd_exn phases in
-        match try_inputs tape [phase; signal] with
-        | [signal'] -> gather_results tape ((thruster, phase) :: acc) (thruster + 1) (List.tl_exn phases) (signal' :: signals) res
-        | outputs -> raise (InvalidOutputs outputs)
+        gather_results tape((thruster, phase) :: acc) (thruster + 1) (List.tl_exn phases) res
     )
 
 let gather_results tape =
-    gather_results tape [] 0 [0;0;0;0;0] [0] []
+    gather_results tape [] 0 [5;5;5;5;5] []
 
 
 let solve () =
