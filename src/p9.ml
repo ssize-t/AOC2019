@@ -1,8 +1,6 @@
 open Core
 
 let debug_program = false
-type part = One | Two
-let part = One
 
 type mode = Addr | Imm | Rel
 [@@deriving show]
@@ -73,7 +71,6 @@ let parse (tape: int array) (i: int): op * int =
     )
     | _, _, am, 3 -> (
         let dest = tape.(i + 1) in
-        printf "Input mode: %d\n" am;
         (Input (dest, (to_mode am))), (i + 2)
     )
     | _, _, am, 4 -> (
@@ -384,10 +381,6 @@ let rec debug (tape: int array) (ic: int) (rb: int) (prev_command: command optio
 let solve () =
     let prog = In_channel.read_all "inputs/9.txt" in
     let tape = make_tape prog in
-    match part with
-    | One -> (
-        match debug_program with
-        | false -> eval tape 0 0
-        | true -> debug tape 0 0 None
-    )
-    | Two -> ()
+    match debug_program with
+    | false -> eval tape 0 0
+    | true -> debug tape 0 0 None
