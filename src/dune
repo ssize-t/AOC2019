@@ -2,4 +2,4 @@
   (name aoc)
   (inline_tests)
   (preprocess (pps ppx_jane))
-  (libraries core))
+  (libraries core ANSITerminal))
