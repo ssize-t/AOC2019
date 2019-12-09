@@ -179,6 +179,7 @@ type command =
     | Parse
     | Eval
     | EvalAddr
+    | Help
 let rbs = ref None
 let ics = ref None
 let store_rb rb =
@@ -283,6 +284,7 @@ let rec debug (tape: int array) (ic: int) (rb: int) (prev_command: command optio
             | "p" | "parse" -> Some Parse
             | "e" | "eval" -> Some Eval
             | "eaddr" | "eval addr" -> Some EvalAddr
+            | "h" | "help" -> Some Help
             | _ -> printf "Unknown command\n"; None in
     let op, ic' = parse tape ic in
     let command_done = ref false in
@@ -367,6 +369,25 @@ let rec debug (tape: int array) (ic: int) (rb: int) (prev_command: command optio
                 let op, ic'' = parse tape addr in
                 eval op (fun ic' rb' command' -> printf "[%d] %s => [+%d] { ic': %d, rb': %d }\n" addr (show_op op) ic'' ic' rb') command ic'
             )
+            | Some Help ->     printf "
+IntDebug
+
+=== commands ===
+  run (r):             Run program
+  step (s):            Step forwards
+  print tape (pt):     Print current content of tape (within 10 of ic)
+  print ic (pic):      Print current ic
+  print rb (prb):      Print current rb
+  print opcode (po):   Print current opcode
+  print ics (pics):    Print 10 most recent ic values
+  print rbs (prbs):    Print 10 most recent rb values
+  backtrack (bt):      Step backwards
+  parse (p):           Parse opcode and print itvto stdout
+  parse addr (paddr):  Parse opcode at addr and printvit to stdout
+  print addr (praddr): Print value at addr
+  eval (e):            Evaluate opcode given on stdin
+  eval addr (eaddr):   Evaluate opcode at addr
+";
             | None -> ()
         done;
     ) in
