@@ -204,7 +204,7 @@ let pos_of_string s =
     match String.split s ~on:',' with
     | [x;y] -> (Int.of_string x),(Int.of_string y)
     | _ -> failwith "Malformed pos"
-let (+) ((x,y): pos) ((x',y'): pos) = (x + x', y + y')
+let (++) ((x,y): pos) ((x',y'): pos) = (x + x', y + y')
 let move (p: pos) (d: dir) (turn: turn_dir) =
     let off, new_dir = match d, turn with
         | U, Left -> (-1, 0), L
@@ -216,7 +216,7 @@ let move (p: pos) (d: dir) (turn: turn_dir) =
         | R, Left -> (0, 1), U
         | R, Right -> (0, -1), D
     in
-    p + off, new_dir
+    p ++ off, new_dir
 
 let unknown_color = ref 0
 let get_color (pixels: (string, color) Hashtbl.t) (p: pos) =
@@ -234,10 +234,31 @@ let set_color (pixels: (string, color) Hashtbl.t) (p: pos) (c: color) =
         Hashtbl.set pixels p c
     | None -> Hashtbl.set pixels p c
 
+let show_image (pixels: (string, color) Hashtbl.t) =
+    let pixels_vals = Hashtbl.keys pixels |> List.map ~f:pos_of_string in
+    let unwrap a = match a with | Some a -> a | None -> failwith "unwrap" in
+    let minY = List.min_elt pixels_vals ~compare:(fun (_, y) (_, y') -> y - y') |> unwrap |> snd in
+    let maxY = List.max_elt pixels_vals ~compare:(fun (_, y) (_, y') -> y - y') |> unwrap |> snd in
+    let minX = List.min_elt pixels_vals ~compare:(fun (x, _) (x', _) -> x - x') |> unwrap |> fst in
+    let maxX = List.max_elt pixels_vals ~compare:(fun (x, _) (x', _) -> x - x') |> unwrap |> fst in
+    let p = ref (minX, maxY) in
+    let row = ref [] in
+    while !p <> (minX, minY - 1) do
+        let c = get_color pixels !p |> color_of_int in
+        (match c with
+        | Black -> row := !row @ ["##"]; printf "##"
+        | White -> row := !row @ ["  "]; printf "  ");
+        match !p with
+        | (x, y) when x = maxX && y = minY - 1 -> ()
+        | (x, y) when x = maxX -> printf "\n%s\n" (!row |> String.concat); row := []; p := (minX, y - 1)
+        | (x, y) -> p := (x + 1, y)
+    done
+
 let solve () =
     let prog = In_channel.read_all "inputs/11.txt" in
     let tape = make_tape prog in
     let pixels: (string, color) Hashtbl.t = Hashtbl.create (module String) in
+    set_color pixels (0, 0) White;
     let p = ref (0,0) in
     let d = ref U in
     let ic = ref 0 in
@@ -259,4 +280,5 @@ let solve () =
         rb := rb';
         halted := hlt
     done;
-    printf "%d\n" (Hashtbl.length pixels)
+    show_image pixels
+    (* printf "%d\n" (Hashtbl.length pixels) *)
