@@ -15,6 +15,7 @@ let solve num =
     | 10 -> P10.solve ()
     | 11 -> P11.solve ()
     | 12 -> P12.solve ()
+    | 13 -> P13.solve ()
     | _ -> printf "Not solved yet, sorry :-)\n"
 
 let intdebug filename =
