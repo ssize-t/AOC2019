@@ -24,10 +24,58 @@ let gravity ((x, y, z), (vx, vy, vz): moon) ((x', y', z'), (vx', vy', vz'): moon
 let apply_vel ((x, y, z), (vx, vy, vz): moon): moon =
     ((x + vx), (y + vy), (z + vz)), (vx, vy, vz)
 
-let rec simulate (moons: moon list) steps_left: moon list =
-    match steps_left with
-    | 0 -> moons
-    | _ -> (
+let rec gcd u v =
+  if v <> 0 then (gcd v (u mod v))
+  else (abs u)
+ 
+let lcm m n =
+  match m, n with
+  | 0, _ | _, 0 -> 0
+  | m, n -> abs (m * n) / (gcd m n)
+
+let lcm (steps: (int * int * int)) =
+    let (sx, sy, sz) = steps in
+    [sx;sy;sz]
+    |> List.fold ~init:1 ~f:(fun acc v -> lcm acc v)
+
+let prev_x = Hashtbl.create (module String)
+let prev_y = Hashtbl.create (module String)
+let prev_z = Hashtbl.create (module String)
+
+let rec simulate (moons: moon list) steps num_steps: int =
+    let pos_to_string pos = pos |> List.map ~f:Int.to_string |> String.concat ~sep:"," in 
+    let step_done s =
+        match s with
+        | (sx, sy, sz) when sx <> 0 && sy <> 0 && sz <> 0 -> true
+        | _ -> false in
+    match steps with
+    | s' when step_done s'-> lcm steps
+    | s' ->
+        let (sx,sy,sz) = steps in
+        let sx' = match sx with
+        | 0 -> (
+            let xs = List.map moons ~f:(fun ((x,_,_),(vx,_,_)) -> pos_to_string [x;vx]) |> String.concat ~sep:"|" in
+            match Hashtbl.find prev_x xs with
+            | Some n -> num_steps
+            | None -> let _ = Hashtbl.add prev_x xs (num_steps) in 0
+        )
+        | _ -> sx in
+        let sy' = match sy with
+        | 0 -> (
+            let ys = List.map moons ~f:(fun ((_,y,_),(_,vy,_)) -> pos_to_string [y;vy]) |> String.concat ~sep:"|" in
+            match Hashtbl.find prev_y ys with
+            | Some n -> num_steps
+            | None -> let _ = Hashtbl.add prev_y ys (num_steps) in 0
+        )
+        | _ -> sy in
+        let sz' = match sz with
+        | 0 -> (
+            let zs = List.map moons ~f:(fun ((_,_,z),(_,_,vz)) -> pos_to_string [z;vz]) |> String.concat ~sep:"|" in
+            match Hashtbl.find prev_z zs with
+            | Some n -> num_steps
+            | None -> let _ = Hashtbl.add prev_z zs (num_steps) in 0
+        )
+        | _ -> sz in
         let moons = moons |> Array.of_list in
         let moon_indices = moons |> Array.mapi ~f:(fun i _ -> i) in
         Array.cartesian_product moon_indices moon_indices
@@ -40,9 +88,9 @@ let rec simulate (moons: moon list) steps_left: moon list =
             moons
             |> Array.to_list
             |> List.map ~f:apply_vel in
-        simulate moons (steps_left -1)
-    )
-let simulate (moons: moon list): moon list = simulate moons num_steps
+        simulate moons (sx',sy',sz') (num_steps + 1)
+let simulate (moons: moon list): int =
+    simulate moons (0,0,0) 0
 
 
 let parse (data: string): moon =
@@ -57,8 +105,7 @@ let parse (data: string): moon =
 
 
 let solve () =
-    let total_e = In_channel.read_lines "inputs/12.txt"
-    |> List.map ~f:parse
-    |> simulate
-    |> List.fold ~init:0 ~f:(fun acc m -> acc + (tot_e m)) in
-    printf "%d\n" total_e;
+    let moons = In_channel.read_lines "inputs/12.txt"
+        |> List.map ~f:parse in
+    let num_steps = simulate moons in
+    printf "%d\n" num_steps
