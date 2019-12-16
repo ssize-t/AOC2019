@@ -1,4 +1,4 @@
 (library
   (name aoc)
   (preprocess (pps ppx_jane ppx_deriving.std))
-  (libraries core ANSITerminal))
+  (libraries core ANSITerminal base))
